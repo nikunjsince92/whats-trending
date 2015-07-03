@@ -1,0 +1,226 @@
+<!-- Through this application you can get all the trending images of instagram at a single place, in a single look. -->
+<!-- The results will get auto refreshed in every 20 seconds. -->
+<!-- You can also make the personal collection of the pics you like. -->
+<!-- Build using React.js -->
+<!-- Author: Nikunj Sharma -->
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title>What's Trending?</title>
+		<link href='http://fonts.googleapis.com/css?family=Ubuntu:400,700' rel='stylesheet' type='text/css'>
+		<link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+		<link rel="shortcut icon" href='<i class="fa fa-thumbs-up"></i>'>
+		<link rel="stylesheet" type="text/css" href="style.css">
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+		<script type='text/jsx' src="react-0.10.0.min.js"></script>
+		<script src="JSXTransformer-0.10.0.js"></script>
+		
+		<link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/jquery.perfect-scrollbar/0.6.2/css/perfect-scrollbar.css' />
+		<script src='https://cdnjs.cloudflare.com/ajax/libs/jquery.perfect-scrollbar/0.6.2/js/perfect-scrollbar.js'></script>
+		<script src='https://cdnjs.cloudflare.com/ajax/libs/jquery.perfect-scrollbar/0.6.2/js/perfect-scrollbar.jquery.js'></script>
+		
+	</head>
+	<body>
+	
+	<script>
+		//Animation using jquery
+		
+		$(document).ready(function(){
+			$(document).on("click", ".toggleFavorite, .toggleFavoriteOpen", function(){
+				$(".favorites").slideToggle(200);
+				$(".toggleFavoriteOpen").delay(210).slideToggle(200);
+			});
+		});
+	</script>
+
+	<script type='text/jsx'>
+	/** @jsx React.DOM */
+	
+	//Construction and Manipulation of DOM using React.js
+	//Here we have two components- Picture and PictureList
+
+    var Picture = React.createClass({
+	//This component builds the HTML to display a picture.
+		clickHandler: function(){
+			this.props.onClick(this.props.ref);
+		},
+
+		render: function(){
+			var cls = 'picture ' + (this.props.favorite ? 'favorite' : '');
+			return (
+				<div className={cls} onClick={this.clickHandler}>
+					<img src={this.props.src} width="200" title={this.props.title} />
+				</div>
+			);
+		}
+	});
+
+	var PictureList = React.createClass({
+		getInitialState: function(){
+			return { pictures: [], favorites: [] };
+				//The pictures array will store all the extracted pics via AJAX call
+				//The favorites array will store the selected pics, on which the user will click.
+		},
+		
+	loadPicsFromInsta: function() {
+	//This function is called through componentDidMount to call the Instagram API for building the pictures array.	
+	
+		var self = this;
+		
+		//Instagram API to get the trending images.
+		var url = 'https://api.instagram.com/v1/media/popular?client_id=' + this.props.apiKey + '&callback=?';
+		console.log(url);
+		$.getJSON(url, function(result){
+			if(!result || !result.data || !result.data.length){
+			return;
+		}
+
+		var pictures = result.data.map(function(p){
+			return { 
+				id: p.id, 
+				url: p.link, 
+				src: p.images.low_resolution.url, 
+				title: p.caption ? p.caption.text : '', 
+				favorite: false 
+			};
+		});
+		
+		//Updates the component state (pictures array)
+		self.setState({ pictures: pictures });
+	
+	});	
+	},
+
+	componentDidMount: function(){
+	
+	//Will load once as the component gets mount
+		this.loadPicsFromInsta();
+		
+	//the images will get auto refresh in every 20 seconds.
+		setInterval(this.loadPicsFromInsta, this.props.pollInterval);
+	},
+
+    pictureClick: function(id){
+	//Holds the ID of the picture on which user has clicked
+	//and stores that picture in the favorites array.
+		var favorites = this.state.favorites,
+			pictures = this.state.pictures;
+
+        for(var i = 0; i < pictures.length; i++){
+		
+		//finds the id in the pictures array.
+			if(pictures[i].id == id) {                  
+				if(pictures[i].favorite){
+                    return this.favoriteClick(id);
+                }
+				
+		//stores the picture in the favorites array and mark it as favorite.		
+			favorites.push(pictures[i]);
+            pictures[i].favorite = true;
+
+            break;
+            }
+		}
+		
+		//updates the state and trigger a render
+        this.setState({pictures: pictures, favorites: favorites});
+	},
+
+    favoriteClick: function(id){
+	//finds the picture in the favorite array and remove it
+	//finds the picture in the pictures array to mark it a non-favorite 
+	
+		var favorites = this.state.favorites,
+            pictures = this.state.pictures;
+		for(var i = 0; i < favorites.length; i++){
+            if(favorites[i].id == id) break;
+        }
+		
+		//Removing from favorite array
+		favorites.splice(i, 1);
+
+		for(i = 0; i < pictures.length; i++){
+            if(pictures[i].id == id) {
+                pictures[i].favorite = false;
+                break;
+            }
+        }
+		
+		//Update the state and trigger a render
+        this.setState({pictures: pictures, favorites: favorites});
+	},
+
+    render: function() {
+		var self = this;
+		var pictures = this.state.pictures.map(function(p){
+            return <Picture ref={p.id} src={p.src} title={p.title} favorite={p.favorite} onClick={self.pictureClick} />
+        });
+
+        if(!pictures.length){
+            pictures = <p>Loading images..</p>;
+        }
+
+        var favorites = this.state.favorites.map(function(p){
+            return <Picture ref={p.id} src={p.src} title={p.title} favorite={true} onClick={self.favoriteClick} />
+        });
+
+        if(!favorites.length){
+            favorites = <p>Click an image to mark it as a favorite.</p>;
+        }
+
+        return (
+		// Building the DOM.
+		
+			<div>
+				<span className="toggleFavoriteOpen">
+						<i className="fa fa-plus"></i>
+				</span>
+                <div className="headingPopularPicsContainer">
+					<span className="headingPopularPics"><i className="fa fa-instagram"></i> &nbsp;&nbsp; What's Trending?</span>
+				</div>
+                <div className="pictures"> {pictures} </div>
+                    
+                <div className="favorites">
+				<span className="toggleFavorite">
+					<i className="fa fa-minus"></i>
+				</span>
+					{favorites} 
+				</div>
+            </div>
+		);
+    }
+	});
+
+	//Render the parent component (PictureList) to start the construction of DOM
+	// jsx is used
+	React.renderComponent(
+	
+	//Here API key is the client-id at Instagram DEvelopers
+	//pollInterval is giving value to setInterval, to auto refresh the page in 20 seconds.
+		<PictureList apiKey="df1c665d12eb45a6bdded3dc9cc2db5a" pollInterval={10000}/>,
+		document.body
+	);
+
+	</script>
+	
+	<script>
+	//Modifying the default scrollbar	
+		
+		$(document).ready(function(){
+			$('html').perfectScrollbar();
+			$('.favorites').perfectScrollbar();
+		
+			setInterval(function(){
+				$('html').perfectScrollbar('update');
+				$('.favorites').perfectScrollbar('update');
+			},1000);
+		});
+		
+		
+		
+	</script>
+	
+	</body>
+</html>
